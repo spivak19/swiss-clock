@@ -1,6 +1,6 @@
 import type { PagesFunction } from '@cloudflare/workers-types';
 import type { Env } from './_shared';
-import { getSessionToken, getSession } from './_shared';
+import { getSessionToken, getSession, isEmailAllowed } from './_shared';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -22,7 +22,7 @@ export const onRequest: PagesFunction<Env> = async (ctx) => {
       return Response.json({ error: 'Not authenticated' }, { status: 401, headers: CORS });
     }
     const session = await getSession(ctx.env.ATTENDANCE_KV, token);
-    if (!session) {
+    if (!session || !isEmailAllowed(ctx.env, session.email)) {
       return Response.json({ error: 'Invalid session' }, { status: 401, headers: CORS });
     }
   }
