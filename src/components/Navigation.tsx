@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
-import { CalendarDays, History, BarChart2, Sun, Moon } from 'lucide-react';
+import { CalendarDays, History, BarChart2, Sun, Moon, LogOut } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import type { User } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
 
 const links = [
@@ -9,7 +10,7 @@ const links = [
   { to: '/statistics', label: 'Statistics', icon: BarChart2, end: false },
 ];
 
-export function Navigation() {
+export function Navigation({ user }: { user: User }) {
   const { isDark, toggle } = useTheme();
 
   return (
@@ -44,7 +45,7 @@ export function Navigation() {
           ))}
         </nav>
 
-        <div className="px-3 py-4 border-t border-gray-200 dark:border-gray-800">
+        <div className="px-3 py-4 border-t border-gray-200 dark:border-gray-800 space-y-1">
           <button
             onClick={toggle}
             className="flex items-center gap-3 px-3 py-2.5 w-full rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
@@ -52,6 +53,14 @@ export function Navigation() {
             {isDark ? <Sun size={18} /> : <Moon size={18} />}
             {isDark ? 'Light mode' : 'Dark mode'}
           </button>
+
+          <div className="flex items-center gap-2 px-3 py-2">
+            <img src={user.picture} alt={user.name} className="w-7 h-7 rounded-full" />
+            <span className="text-xs text-gray-600 dark:text-gray-400 truncate flex-1">{user.name}</span>
+            <a href="/api/auth/logout" title="Sign out" className="text-gray-400 hover:text-red-500 transition-colors">
+              <LogOut size={14} />
+            </a>
+          </div>
         </div>
       </aside>
 

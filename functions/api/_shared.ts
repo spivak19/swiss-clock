@@ -52,6 +52,27 @@ export interface EmployeeStats {
 
 export interface Env {
   ATTENDANCE_KV: KVNamespace;
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+}
+
+export interface UserSession {
+  email: string;
+  name: string;
+  picture: string;
+}
+
+export function getSessionToken(request: Request): string | null {
+  const cookie = request.headers.get('Cookie') ?? '';
+  const match = cookie.match(/(?:^|;\s*)session=([^;]+)/);
+  return match ? match[1] : null;
+}
+
+export async function getSession(
+  kv: KVNamespace,
+  token: string,
+): Promise<UserSession | null> {
+  return kv.get<UserSession>(`session:${token}`, 'json');
 }
 
 export const CORS_HEADERS = {

@@ -5,6 +5,8 @@
   "compatibility_flags": [
     "nodejs_compat"
   ],
+  // Set secrets via: wrangler secret put GOOGLE_CLIENT_ID
+  //                   wrangler secret put GOOGLE_CLIENT_SECRET
   "kv_namespaces": [
     {
       "binding": "ATTENDANCE_KV",
