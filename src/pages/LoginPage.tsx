@@ -1,4 +1,6 @@
 export function LoginPage() {
+  const isUnauthorized = new URLSearchParams(window.location.search).get('auth_error') === 'unauthorized';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 px-4">
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-8 w-full max-w-sm text-center shadow-sm">
@@ -7,6 +9,11 @@ export function LoginPage() {
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
           Employee attendance tracker
         </p>
+        {isUnauthorized && (
+          <div className="mb-5 px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-700 dark:text-red-400">
+            Your account is not authorised to access this app.
+          </div>
+        )}
         <a
           href="/api/auth/login"
           className="inline-flex items-center justify-center gap-3 w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm"

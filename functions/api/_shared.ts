@@ -54,6 +54,12 @@ export interface Env {
   ATTENDANCE_KV: KVNamespace;
   GOOGLE_CLIENT_ID: string;
   GOOGLE_CLIENT_SECRET: string;
+  ALLOWED_EMAILS: string; // comma-separated list, e.g. "alice@gmail.com,bob@gmail.com"
+}
+
+export function isEmailAllowed(env: Env, email: string): boolean {
+  if (!env.ALLOWED_EMAILS?.trim()) return true; // no list = allow all
+  return env.ALLOWED_EMAILS.split(',').map((e) => e.trim().toLowerCase()).includes(email.toLowerCase());
 }
 
 export interface UserSession {

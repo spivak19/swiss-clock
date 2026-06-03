@@ -1,5 +1,6 @@
 import type { PagesFunction } from '@cloudflare/workers-types';
 import type { Env } from '../_shared';
+import { isEmailAllowed } from '../_shared';
 
 const SESSION_TTL = 60 * 60 * 24 * 7; // 7 days
 
@@ -50,6 +51,10 @@ export const onRequestGet: PagesFunction<Env> = async (ctx) => {
   }
 
   const user = await userRes.json() as { email: string; name: string; picture: string };
+
+  if (!isEmailAllowed(ctx.env, user.email)) {
+    return Response.redirect(`${origin}/?auth_error=unauthorized`, 302);
+  }
 
   // Create session
   const token = crypto.randomUUID();
