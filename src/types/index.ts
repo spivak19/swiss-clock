@@ -7,7 +7,7 @@ export type AttendanceStatus = 'present' | 'absent' | 'remote';
 
 export interface AttendanceRecord {
   arrival?: string;     // "HH:mm"
-  departure?: string;   // "HH:mm"
+  departure?: string;   // "HH:mm".
   status?: AttendanceStatus;
   notes?: string;
 }
