@@ -36,7 +36,9 @@ export const onRequestGet: PagesFunction<Env> = async (ctx) => {
   });
 
   if (!tokenRes.ok) {
-    return Response.redirect(`${origin}/?auth_error=token_failed`, 302);
+    const errBody = await tokenRes.text();
+    console.error('Token exchange failed:', tokenRes.status, errBody);
+    return Response.redirect(`${origin}/?auth_error=token_failed&detail=${encodeURIComponent(errBody)}`, 302);
   }
 
   const { access_token } = await tokenRes.json() as { access_token: string };
