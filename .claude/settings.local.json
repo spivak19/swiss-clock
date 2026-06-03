@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(Get-Content \"C:\\\\Users\\\\Ariel Spivak\\\\AppData\\\\Roaming\\\\xdg.config\\\\.wrangler\\\\logs\\\\wrangler-2026-06-03_14-26-12_278.log\" -Tail 200)"
+    ]
+  }
+}

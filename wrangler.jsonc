@@ -1,0 +1,16 @@
+{
+  "name": "swissclock",
+  "compatibility_date": "2026-01-01",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "ATTENDANCE_KV",
+      // Run: npm run kv:create  →  paste the returned id here
+      "id": "983492147d0f46fcb234521188a50bc8",
+      // Run: npm run kv:create:preview  →  paste the returned id here
+      "preview_id": "fbefdecbeb934f39a4eeac2254e2ad97"
+    }
+  ]
+}

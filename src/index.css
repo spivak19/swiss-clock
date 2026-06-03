@@ -1,0 +1,34 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-white;
+  }
+
+  input[type="time"],
+  input[type="date"] {
+    color-scheme: light;
+  }
+
+  .dark input[type="time"],
+  .dark input[type="date"] {
+    color-scheme: dark;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Smooth transition for dark mode toggle */
+html {
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
