@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Download, Clock, Calendar, Award, ChevronDown } from 'lucide-react';
+import { Download, Clock, Calendar, Award, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getStatistics, getEmployeeStatistics } from '../lib/api';
 import { useEmployees } from '../hooks/useEmployees';
 import type { EmployeeStats, DatePreset } from '../types';
@@ -7,10 +7,10 @@ import { exportToCSV, getTodayString, cn, formatHours, parseTime } from '../lib/
 
 const WORK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'] as const;
 
-function getWorkWeekDates(todayStr: string): string[] {
+function getWorkWeekDates(todayStr: string, offsetWeeks = 0): string[] {
   const today = new Date(todayStr + 'T00:00:00');
   const sunday = new Date(today);
-  sunday.setDate(today.getDate() - today.getDay());
+  sunday.setDate(today.getDate() - today.getDay() + offsetWeeks * 7);
   return Array.from({ length: 5 }, (_, i) => {
     const d = new Date(sunday);
     d.setDate(sunday.getDate() + i);
@@ -64,6 +64,7 @@ export function StatisticsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set());
+  const [weekOffset, setWeekOffset] = useState(0);
 
   const toggleEmployee = (id: string) =>
     setExpandedEmployees((prev) => {
@@ -281,21 +282,21 @@ export function StatisticsPage() {
           </div>
 
           {/* Average times per employee */}
-          <div className="mt-4 overflow-hidden rounded-xl border border-gray-100 dark:border-gray-800">
-            <table className="w-full text-sm">
+          <div className="mt-4 overflow-x-auto rounded-xl border border-gray-100 dark:border-gray-800">
+            <table className="min-w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800/50">
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Arrival</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Departure</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Day</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">This Week</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Avg Arrival</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Avg Departure</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Avg Day</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Days</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">This Week</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
                 {(() => {
-                  const weekDates = new Set(getWorkWeekDates(getTodayString()));
+                  const weekDates = new Set(getWorkWeekDates(getTodayString(), weekOffset));
                   return stats
                     .filter((s) => s.avgArrival !== null)
                     .sort((a, b) => parseTime(a.avgArrival!) - parseTime(b.avgArrival!))
@@ -323,8 +324,9 @@ export function StatisticsPage() {
 
       {/* Per-employee collapsible cards */}
       {!loading && !error && displayStats.length > 0 && (() => {
-        const weekDates = getWorkWeekDates(getTodayString());
+        const weekDates = getWorkWeekDates(getTodayString(), weekOffset);
         const weekLabel = `${weekDates[0].slice(5).replace('-', '/')} – ${weekDates[4].slice(5).replace('-', '/')}`;
+        const weekTitle = weekOffset === 0 ? 'Current Week' : weekOffset === -1 ? 'Last Week' : weekOffset < 0 ? `${Math.abs(weekOffset)} Weeks Ago` : `Week +${weekOffset}`;
         return (
           <div className="space-y-2">
             {displayStats.map((s) => {
@@ -362,9 +364,24 @@ export function StatisticsPage() {
                       {/* Current week table */}
                       <div>
                         <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                            Current Week
-                          </h3>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => setWeekOffset((o) => o - 1)}
+                              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                              <ChevronLeft size={14} />
+                            </button>
+                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-1">
+                              {weekTitle}
+                            </h3>
+                            <button
+                              onClick={() => setWeekOffset((o) => o + 1)}
+                              disabled={weekOffset >= 0}
+                              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <ChevronRight size={14} />
+                            </button>
+                          </div>
                           <span className="text-xs text-gray-400">{weekLabel}</span>
                         </div>
                         <div className="grid grid-cols-5 divide-x divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
@@ -458,57 +475,6 @@ export function StatisticsPage() {
                         ))}
                       </div>
 
-                      {/* Recent days table */}
-                      {s.dailyData.length > 0 && (
-                        <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
-                          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                              Recent Days
-                            </h3>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="bg-gray-50 dark:bg-gray-800/30">
-                                  {['Date', 'Arrival', 'Departure', 'Hours', 'Overtime'].map((h) => (
-                                    <th
-                                      key={h}
-                                      className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider"
-                                    >
-                                      {h}
-                                    </th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
-                                {s.dailyData
-                                  .slice()
-                                  .reverse()
-                                  .slice(0, 30)
-                                  .map((d) => (
-                                    <tr key={d.date} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                                      <td className="px-4 py-2.5 text-gray-900 dark:text-white font-medium">{d.date}</td>
-                                      <td className="px-4 py-2.5 tabular-nums text-gray-700 dark:text-gray-300">{d.arrival ?? '—'}</td>
-                                      <td className="px-4 py-2.5 tabular-nums text-gray-700 dark:text-gray-300">{d.departure ?? '—'}</td>
-                                      <td className="px-4 py-2.5 tabular-nums text-gray-700 dark:text-gray-300">
-                                        {d.hours !== null ? `${d.hours.toFixed(1)}h` : '—'}
-                                      </td>
-                                      <td className="px-4 py-2.5 tabular-nums">
-                                        {d.hours !== null && d.hours > 8 ? (
-                                          <span className="text-amber-600 dark:text-amber-400 font-medium">
-                                            +{(d.hours - 8).toFixed(1)}h
-                                          </span>
-                                        ) : (
-                                          <span className="text-gray-400">—</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>
