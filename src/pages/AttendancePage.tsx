@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Plus, Save, RefreshCw, Search } from 'lucide-react';
+import { Plus, Save, RefreshCw, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEmployees } from '../hooks/useEmployees';
 import { useAttendance } from '../hooks/useAttendance';
 import { AttendanceTable } from '../components/AttendanceTable';
@@ -8,6 +8,15 @@ import { Toast } from '../components/Toast';
 import { EmployeeModal } from '../components/EmployeeModal';
 import { getTodayString, formatDisplayDate } from '../lib/utils';
 import type { AttendanceRecord } from '../types';
+
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export function AttendancePage() {
   const [date, setDate] = useState(getTodayString);
@@ -73,7 +82,13 @@ export function AttendancePage() {
             {formatDisplayDate(date)}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setDate((d) => addDays(d, -1))}
+            className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          >
+            <ChevronLeft size={16} />
+          </button>
           <input
             type="date"
             value={date}
@@ -81,6 +96,13 @@ export function AttendancePage() {
             onChange={(e) => setDate(e.target.value)}
             className="rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <button
+            onClick={() => setDate((d) => addDays(d, 1))}
+            disabled={date >= getTodayString()}
+            className="p-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight size={16} />
+          </button>
           <button
             onClick={() => setDate(getTodayString())}
             title="Jump to today"

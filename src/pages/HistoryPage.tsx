@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Clock, LogIn, LogOut } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clock, LogIn, LogOut, MessageSquare } from 'lucide-react';
 import { useEmployees } from '../hooks/useEmployees';
 import { useAttendance } from '../hooks/useAttendance';
 import { getTodayString, formatDisplayDate, calculateHours, isValidTime, formatHours } from '../lib/utils';
@@ -7,7 +7,10 @@ import { getTodayString, formatDisplayDate, calculateHours, isValidTime, formatH
 function addDays(dateStr: string, days: number): string {
   const d = new Date(dateStr + 'T00:00:00');
   d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function HistoryPage() {
@@ -82,6 +85,7 @@ export function HistoryPage() {
             const record = attendance[emp.id];
             const arrival = record?.arrival ?? null;
             const departure = record?.departure ?? null;
+            const notes = record?.notes ?? null;
             const hours =
               arrival && departure && isValidTime(arrival) && isValidTime(departure)
                 ? calculateHours(arrival, departure)
@@ -90,40 +94,49 @@ export function HistoryPage() {
             return (
               <div
                 key={emp.id}
-                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4"
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl px-6 py-5 flex flex-col gap-3"
               >
-                {/* Name */}
-                <div className="flex-1 min-w-0">
-                  <span className="text-2xl font-bold text-gray-900 dark:text-white truncate">
-                    {emp.name}
-                  </span>
-                </div>
-
-                {/* Times + hours */}
-                <div className="flex items-center gap-6 flex-wrap">
-                  <div className="flex items-center gap-2">
-                    <LogIn size={18} className="text-green-500 shrink-0" />
-                    <span className="text-2xl font-semibold tabular-nums text-gray-800 dark:text-gray-100">
-                      {arrival ?? '—'}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  {/* Name */}
+                  <div className="flex-1 min-w-0">
+                    <span className="text-2xl font-bold text-gray-900 dark:text-white truncate">
+                      {emp.name}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <LogOut size={18} className="text-red-400 shrink-0" />
-                    <span className="text-2xl font-semibold tabular-nums text-gray-800 dark:text-gray-100">
-                      {departure ?? '—'}
-                    </span>
-                  </div>
-
-                  {hours !== null && hours > 0 && (
+                  {/* Times + hours */}
+                  <div className="flex items-center gap-6 flex-wrap">
                     <div className="flex items-center gap-2">
-                      <Clock size={18} className="text-blue-500 shrink-0" />
-                      <span className="text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
-                        {formatHours(hours)}
+                      <LogIn size={18} className="text-green-500 shrink-0" />
+                      <span className="text-2xl font-semibold tabular-nums text-gray-800 dark:text-gray-100">
+                        {arrival ?? '—'}
                       </span>
                     </div>
-                  )}
+
+                    <div className="flex items-center gap-2">
+                      <LogOut size={18} className="text-red-400 shrink-0" />
+                      <span className="text-2xl font-semibold tabular-nums text-gray-800 dark:text-gray-100">
+                        {departure ?? '—'}
+                      </span>
+                    </div>
+
+                    {hours !== null && hours > 0 && (
+                      <div className="flex items-center gap-2">
+                        <Clock size={18} className="text-blue-500 shrink-0" />
+                        <span className="text-2xl font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+                          {formatHours(hours)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
+
+                {notes && (
+                  <div className="flex items-start gap-2 text-gray-500 dark:text-gray-400">
+                    <MessageSquare size={15} className="shrink-0 mt-0.5" />
+                    <span className="text-sm italic">{notes}</span>
+                  </div>
+                )}
               </div>
             );
           })}
