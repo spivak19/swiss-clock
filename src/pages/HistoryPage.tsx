@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Save } from 'lucide-react';
 import { useEmployees } from '../hooks/useEmployees';
 import { useAttendance } from '../hooks/useAttendance';
@@ -37,6 +37,14 @@ export function HistoryPage() {
   };
 
   const loading = empLoading || attLoading;
+
+  const filteredEmployees = useMemo(
+    () => employees.filter((e) => {
+      const r = attendance[e.id];
+      return r?.arrival || r?.departure;
+    }),
+    [employees, attendance],
+  );
 
   return (
     <div className="space-y-6">
@@ -82,7 +90,7 @@ export function HistoryPage() {
       {/* Save bar */}
       <div className="flex items-center justify-between">
         <span className="text-sm text-gray-500 dark:text-gray-500">
-          {loading ? '' : `${employees.length} employee${employees.length !== 1 ? 's' : ''}`}
+          {loading ? '' : `${filteredEmployees.length} employee${filteredEmployees.length !== 1 ? 's' : ''} with data`}
         </span>
         <div className="flex items-center gap-2">
           {dirty && (
@@ -108,7 +116,7 @@ export function HistoryPage() {
         </div>
       ) : (
         <AttendanceTable
-          employees={employees}
+          employees={filteredEmployees}
           attendance={attendance}
           onUpdateRecord={(id, field, value) =>
             updateRecord(id, field as keyof AttendanceRecord, value)
