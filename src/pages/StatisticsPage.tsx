@@ -1,11 +1,25 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Download, TrendingUp, Clock, Calendar, Award } from 'lucide-react';
+import { Download, Clock, Calendar, Award, ChevronDown } from 'lucide-react';
 import { getStatistics, getEmployeeStatistics } from '../lib/api';
 import { useEmployees } from '../hooks/useEmployees';
-import { ArrivalTimeChart } from '../components/charts/ArrivalTimeChart';
-import { MonthlyAttendanceChart } from '../components/charts/MonthlyAttendanceChart';
 import type { EmployeeStats, DatePreset } from '../types';
-import { exportToCSV, getTodayString, cn, parseTime } from '../lib/utils';
+import { exportToCSV, getTodayString, cn, formatHours, parseTime } from '../lib/utils';
+
+const WORK_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu'] as const;
+
+function getWorkWeekDates(todayStr: string): string[] {
+  const today = new Date(todayStr + 'T00:00:00');
+  const sunday = new Date(today);
+  sunday.setDate(today.getDate() - today.getDay());
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + i);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  });
+}
 
 const PRESETS: { value: DatePreset; label: string }[] = [
   { value: 'last30', label: 'Last 30 days' },
@@ -49,6 +63,14 @@ export function StatisticsPage() {
   const [stats, setStats] = useState<EmployeeStats[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(new Set());
+
+  const toggleEmployee = (id: string) =>
+    setExpandedEmployees((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -86,20 +108,12 @@ export function StatisticsPage() {
 
   const leaderboard = useMemo(() => {
     if (selectedEmployeeId !== 'all' || stats.length < 2) return null;
-    const withArrival = stats.filter((s) => s.avgArrival !== null);
-    const withDeparture = stats.filter((s) => s.avgDeparture !== null);
-    if (withArrival.length === 0) return null;
-
-    const minBy = (arr: typeof stats, key: 'avgArrival' | 'avgDeparture') =>
-      arr.reduce((a, b) => (parseTime(a[key]!) < parseTime(b[key]!) ? a : b));
-    const maxBy = (arr: typeof stats, key: 'avgArrival' | 'avgDeparture') =>
-      arr.reduce((a, b) => (parseTime(a[key]!) > parseTime(b[key]!) ? a : b));
+    const withHours = stats.filter((s) => s.avgHoursPerDay !== null);
+    if (withHours.length === 0) return null;
 
     return {
-      earliestArrival: minBy(withArrival, 'avgArrival'),
-      latestArrival: maxBy(withArrival, 'avgArrival'),
-      earliestDeparture: withDeparture.length > 0 ? minBy(withDeparture, 'avgDeparture') : null,
-      latestDeparture: withDeparture.length > 0 ? maxBy(withDeparture, 'avgDeparture') : null,
+      longestDay: withHours.reduce((a, b) => (a.avgHoursPerDay! > b.avgHoursPerDay! ? a : b)),
+      shortestDay: withHours.reduce((a, b) => (a.avgHoursPerDay! < b.avgHoursPerDay! ? a : b)),
     };
   }, [selectedEmployeeId, stats]);
 
@@ -251,17 +265,15 @@ export function StatisticsPage() {
           <h2 className="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">
             Overall Rankings
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             {[
-              { label: 'Earliest Arrival', emp: leaderboard.earliestArrival, timeKey: 'avgArrival' as const, accent: 'text-green-600 dark:text-green-400' },
-              { label: 'Latest Arrival', emp: leaderboard.latestArrival, timeKey: 'avgArrival' as const, accent: 'text-orange-500 dark:text-orange-400' },
-              { label: 'Earliest Departure', emp: leaderboard.earliestDeparture, timeKey: 'avgDeparture' as const, accent: 'text-blue-600 dark:text-blue-400' },
-              { label: 'Latest Departure', emp: leaderboard.latestDeparture, timeKey: 'avgDeparture' as const, accent: 'text-red-500 dark:text-red-400' },
-            ].map(({ label, emp, timeKey, accent }) =>
-              emp ? (
+              { label: 'Longest Avg Day', emp: leaderboard.longestDay, value: leaderboard.longestDay?.avgHoursPerDay != null ? formatHours(leaderboard.longestDay.avgHoursPerDay) : undefined, accent: 'text-purple-600 dark:text-purple-400' },
+              { label: 'Shortest Avg Day', emp: leaderboard.shortestDay, value: leaderboard.shortestDay?.avgHoursPerDay != null ? formatHours(leaderboard.shortestDay.avgHoursPerDay) : undefined, accent: 'text-gray-600 dark:text-gray-400' },
+            ].map(({ label, emp, value, accent }) =>
+              emp && value ? (
                 <div key={label} className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
                   <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">{label}</p>
-                  <p className={`text-2xl font-bold tabular-nums ${accent}`}>{emp[timeKey]}</p>
+                  <p className={`text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-1 truncate">{emp.employeeName}</p>
                 </div>
               ) : null,
@@ -276,210 +288,235 @@ export function StatisticsPage() {
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Arrival</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Departure</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Day</th>
                   <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider">This Week</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
-                {stats
-                  .filter((s) => s.avgArrival !== null)
-                  .sort((a, b) => parseTime(a.avgArrival!) - parseTime(b.avgArrival!))
-                  .map((s) => (
-                    <tr key={s.employeeId} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
-                      <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-white">{s.employeeName}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-green-600 dark:text-green-400 font-medium">{s.avgArrival}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-red-500 dark:text-red-400 font-medium">{s.avgDeparture ?? '—'}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-gray-500">{s.totalDays}</td>
-                    </tr>
-                  ))}
+                {(() => {
+                  const weekDates = new Set(getWorkWeekDates(getTodayString()));
+                  return stats
+                    .filter((s) => s.avgArrival !== null)
+                    .sort((a, b) => parseTime(a.avgArrival!) - parseTime(b.avgArrival!))
+                    .map((s) => {
+                      const weekHours = s.dailyData
+                        .filter((d) => weekDates.has(d.date))
+                        .reduce((sum, d) => sum + (d.hours ?? 0), 0);
+                      return (
+                        <tr key={s.employeeId} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                          <td className="px-4 py-2.5 font-medium text-gray-900 dark:text-white">{s.employeeName}</td>
+                          <td className="px-4 py-2.5 tabular-nums text-green-600 dark:text-green-400 font-medium">{s.avgArrival}</td>
+                          <td className="px-4 py-2.5 tabular-nums text-red-500 dark:text-red-400 font-medium">{s.avgDeparture ?? '—'}</td>
+                          <td className="px-4 py-2.5 tabular-nums text-purple-600 dark:text-purple-400 font-medium">{s.avgHoursPerDay != null ? formatHours(s.avgHoursPerDay) : '—'}</td>
+                          <td className="px-4 py-2.5 tabular-nums text-gray-500">{s.totalDays}</td>
+                          <td className="px-4 py-2.5 tabular-nums text-blue-600 dark:text-blue-400 font-medium">{weekHours > 0 ? formatHours(weekHours) : '—'}</td>
+                        </tr>
+                      );
+                    });
+                })()}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {!loading &&
-        !error &&
-        displayStats.map((s) => (
-          <div key={s.employeeId} className="space-y-5">
-            {selectedEmployeeId === 'all' && (
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white border-b border-gray-200 dark:border-gray-800 pb-2">
-                {s.employeeName}
-              </h2>
-            )}
+      {/* Per-employee collapsible cards */}
+      {!loading && !error && displayStats.length > 0 && (() => {
+        const weekDates = getWorkWeekDates(getTodayString());
+        const weekLabel = `${weekDates[0].slice(5).replace('-', '/')} – ${weekDates[4].slice(5).replace('-', '/')}`;
+        return (
+          <div className="space-y-2">
+            {displayStats.map((s) => {
+              const isExpanded = expandedEmployees.has(s.employeeId);
+              const byDate = new Map(s.dailyData.map((d) => [d.date, d]));
+              const weekData = weekDates.map((date) => ({ date, record: byDate.get(date) ?? null }));
+              const weekTotal = weekData.reduce((sum, { record }) => sum + (record?.hours ?? 0), 0);
 
-            {/* Stat cards */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              <StatCard
-                label="Total Days"
-                value={String(s.totalDays)}
-                sub="in period"
-                icon={Calendar}
-                color="text-blue-600 dark:text-blue-400"
-              />
-              <StatCard
-                label="This Month"
-                value={String(s.daysThisMonth)}
-                sub="days"
-                icon={Calendar}
-                color="text-blue-600 dark:text-blue-400"
-              />
-              <StatCard
-                label="This Year"
-                value={String(s.daysThisYear)}
-                sub="days"
-                icon={TrendingUp}
-                color="text-green-600 dark:text-green-400"
-              />
-              <StatCard
-                label="Avg Arrival"
-                value={s.avgArrival ?? '—'}
-                sub={
-                  s.earliestArrival
-                    ? `earliest ${s.earliestArrival}`
-                    : undefined
-                }
-                icon={Clock}
-                color="text-green-600 dark:text-green-400"
-              />
-              <StatCard
-                label="Avg Departure"
-                value={s.avgDeparture ?? '—'}
-                sub={
-                  s.latestDeparture ? `latest ${s.latestDeparture}` : undefined
-                }
-                icon={Clock}
-                color="text-red-600 dark:text-red-400"
-              />
-              <StatCard
-                label="Avg Hours/Day"
-                value={s.avgHoursPerDay !== null ? `${s.avgHoursPerDay}h` : '—'}
-                sub={
-                  s.totalOvertimeHours > 0
-                    ? `+${s.totalOvertimeHours}h overtime`
-                    : undefined
-                }
-                icon={Award}
-                color="text-purple-600 dark:text-purple-400"
-              />
-            </div>
-
-            {/* Extremes row */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {[
-                { label: 'Earliest Arrival', value: s.earliestArrival ?? '—' },
-                { label: 'Latest Arrival', value: s.latestArrival ?? '—' },
-                { label: 'Earliest Departure', value: s.earliestDeparture ?? '—' },
-                { label: 'Latest Departure', value: s.latestDeparture ?? '—' },
-              ].map((item) => (
+              return (
                 <div
-                  key={item.label}
-                  className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4"
+                  key={s.employeeId}
+                  className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden"
                 >
-                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-                    {item.label}
-                  </p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
-                    {item.value}
-                  </p>
-                </div>
-              ))}
-            </div>
+                  {/* Toggle header */}
+                  <button
+                    onClick={() => toggleEmployee(s.employeeId)}
+                    className="w-full px-5 py-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  >
+                    <span className="text-lg font-semibold text-gray-900 dark:text-white">
+                      {s.employeeName}
+                    </span>
+                    <ChevronDown
+                      size={20}
+                      className={cn(
+                        'text-gray-400 transition-transform duration-200',
+                        isExpanded && 'rotate-180',
+                      )}
+                    />
+                  </button>
 
-            {/* Charts */}
-            <div className="grid md:grid-cols-2 gap-5">
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-                  Arrival & Departure Times
-                </h3>
-                <ArrivalTimeChart dailyData={s.dailyData} />
-              </div>
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-5">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-4">
-                  Monthly Attendance
-                </h3>
-                <MonthlyAttendanceChart monthlyData={s.monthlyData} />
-              </div>
-            </div>
+                  {/* Collapsible body */}
+                  {isExpanded && (
+                    <div className="border-t border-gray-100 dark:border-gray-800 p-5 space-y-5">
 
-            {/* Recent activity table */}
-            {s.dailyData.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
-                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Recent Days
-                  </h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-gray-50 dark:bg-gray-800/50">
-                        {['Date', 'Status', 'Arrival', 'Departure', 'Hours', 'Overtime'].map(
-                          (h) => (
-                            <th
-                              key={h}
-                              className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider"
-                            >
-                              {h}
-                            </th>
-                          ),
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {s.dailyData
-                        .slice()
-                        .reverse()
-                        .slice(0, 30)
-                        .map((d) => (
-                          <tr
-                            key={d.date}
-                            className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
-                          >
-                            <td className="px-4 py-2.5 text-gray-900 dark:text-white font-medium">
-                              {d.date}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <span
-                                className={cn(
-                                  'text-xs font-medium px-2 py-0.5 rounded-full',
-                                  d.status === 'present' &&
-                                    'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-                                  d.status === 'absent' &&
-                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-                                  d.status === 'remote' &&
-                                    'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-                                )}
-                              >
-                                {d.status}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 tabular-nums">
-                              {d.arrival ?? '—'}
-                            </td>
-                            <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 tabular-nums">
-                              {d.departure ?? '—'}
-                            </td>
-                            <td className="px-4 py-2.5 text-gray-700 dark:text-gray-300 tabular-nums">
-                              {d.hours !== null ? `${d.hours.toFixed(1)}h` : '—'}
-                            </td>
-                            <td className="px-4 py-2.5 tabular-nums">
-                              {d.hours !== null && d.hours > 8 ? (
-                                <span className="text-amber-600 dark:text-amber-400 font-medium">
-                                  +{(d.hours - 8).toFixed(1)}h
-                                </span>
+                      {/* Current week table */}
+                      <div>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                            Current Week
+                          </h3>
+                          <span className="text-xs text-gray-400">{weekLabel}</span>
+                        </div>
+                        <div className="grid grid-cols-5 divide-x divide-gray-100 dark:divide-gray-800 border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
+                          {weekData.map(({ date, record }, i) => (
+                            <div key={date} className="p-3 text-center bg-gray-50/50 dark:bg-gray-800/20">
+                              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">
+                                {WORK_DAYS[i]}
+                              </p>
+                              <p className="text-xs text-gray-400 dark:text-gray-600 mb-2">
+                                {date.slice(5).replace('-', '/')}
+                              </p>
+                              {record ? (
+                                <>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
+                                    {record.arrival ?? '—'}
+                                  </p>
+                                  <p className="text-xs text-gray-400 my-0.5">↓</p>
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
+                                    {record.departure ?? '—'}
+                                  </p>
+                                  {record.hours != null && (
+                                    <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-2">
+                                      {formatHours(record.hours)}
+                                    </p>
+                                  )}
+                                </>
                               ) : (
-                                <span className="text-gray-400">—</span>
+                                <p className="text-sm text-gray-300 dark:text-gray-700">—</p>
                               )}
-                            </td>
-                          </tr>
+                            </div>
+                          ))}
+                        </div>
+                        {weekTotal > 0 && (
+                          <p className="text-right text-sm font-semibold text-blue-600 dark:text-blue-400 mt-2">
+                            Week total: {formatHours(weekTotal)}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Stat cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <StatCard
+                          label="This Month"
+                          value={String(s.daysThisMonth)}
+                          sub="days"
+                          icon={Calendar}
+                          color="text-blue-600 dark:text-blue-400"
+                        />
+                        <StatCard
+                          label="Avg Arrival"
+                          value={s.avgArrival ?? '—'}
+                          sub={s.earliestArrival ? `earliest ${s.earliestArrival}` : undefined}
+                          icon={Clock}
+                          color="text-green-600 dark:text-green-400"
+                        />
+                        <StatCard
+                          label="Avg Departure"
+                          value={s.avgDeparture ?? '—'}
+                          sub={s.latestDeparture ? `latest ${s.latestDeparture}` : undefined}
+                          icon={Clock}
+                          color="text-red-600 dark:text-red-400"
+                        />
+                        <StatCard
+                          label="Avg Hours/Day"
+                          value={s.avgHoursPerDay !== null ? `${s.avgHoursPerDay}h` : '—'}
+                          sub={s.totalOvertimeHours > 0 ? `+${s.totalOvertimeHours}h overtime` : undefined}
+                          icon={Award}
+                          color="text-purple-600 dark:text-purple-400"
+                        />
+                      </div>
+
+                      {/* Extremes */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {[
+                          { label: 'Earliest Arrival', value: s.earliestArrival ?? '—' },
+                          { label: 'Latest Arrival', value: s.latestArrival ?? '—' },
+                          { label: 'Earliest Departure', value: s.earliestDeparture ?? '—' },
+                          { label: 'Latest Departure', value: s.latestDeparture ?? '—' },
+                        ].map((item) => (
+                          <div
+                            key={item.label}
+                            className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4"
+                          >
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                              {item.label}
+                            </p>
+                            <p className="text-xl font-bold text-gray-900 dark:text-white tabular-nums">
+                              {item.value}
+                            </p>
+                          </div>
                         ))}
-                    </tbody>
-                  </table>
+                      </div>
+
+                      {/* Recent days table */}
+                      {s.dailyData.length > 0 && (
+                        <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
+                          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+                            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                              Recent Days
+                            </h3>
+                          </div>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="bg-gray-50 dark:bg-gray-800/30">
+                                  {['Date', 'Arrival', 'Departure', 'Hours', 'Overtime'].map((h) => (
+                                    <th
+                                      key={h}
+                                      className="text-left px-4 py-2.5 text-xs font-medium text-gray-500 uppercase tracking-wider"
+                                    >
+                                      {h}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100 dark:divide-gray-800 bg-white dark:bg-gray-900">
+                                {s.dailyData
+                                  .slice()
+                                  .reverse()
+                                  .slice(0, 30)
+                                  .map((d) => (
+                                    <tr key={d.date} className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors">
+                                      <td className="px-4 py-2.5 text-gray-900 dark:text-white font-medium">{d.date}</td>
+                                      <td className="px-4 py-2.5 tabular-nums text-gray-700 dark:text-gray-300">{d.arrival ?? '—'}</td>
+                                      <td className="px-4 py-2.5 tabular-nums text-gray-700 dark:text-gray-300">{d.departure ?? '—'}</td>
+                                      <td className="px-4 py-2.5 tabular-nums text-gray-700 dark:text-gray-300">
+                                        {d.hours !== null ? `${d.hours.toFixed(1)}h` : '—'}
+                                      </td>
+                                      <td className="px-4 py-2.5 tabular-nums">
+                                        {d.hours !== null && d.hours > 8 ? (
+                                          <span className="text-amber-600 dark:text-amber-400 font-medium">
+                                            +{(d.hours - 8).toFixed(1)}h
+                                          </span>
+                                        ) : (
+                                          <span className="text-gray-400">—</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })}
           </div>
-        ))}
+        );
+      })()}
     </div>
   );
 }
