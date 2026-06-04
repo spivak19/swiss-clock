@@ -1,11 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Plus, Save, RefreshCw, Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Save, RefreshCw, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEmployees } from '../hooks/useEmployees';
 import { useAttendance } from '../hooks/useAttendance';
 import { AttendanceTable } from '../components/AttendanceTable';
 import { DashboardCards } from '../components/DashboardCards';
 import { Toast } from '../components/Toast';
-import { EmployeeModal } from '../components/EmployeeModal';
 import { getTodayString, formatDisplayDate } from '../lib/utils';
 import type { AttendanceRecord } from '../types';
 
@@ -22,7 +21,6 @@ export function AttendancePage() {
   const [date, setDate] = useState(getTodayString);
   const [search, setSearch] = useState('');
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
 
   const { employees, loading: empLoading, addEmployee, updateEmployee, removeEmployee } =
     useEmployees();
@@ -46,7 +44,6 @@ export function AttendancePage() {
   const handleAddEmployee = async (name: string) => {
     await addEmployee(name);
     showToast(`${name} added`);
-    setShowAddModal(false);
   };
 
   const handleEditEmployee = async (id: string, name: string) => {
@@ -128,12 +125,6 @@ export function AttendancePage() {
             className="w-full pl-8 pr-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="sm:hidden inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-        >
-          <Plus size={16} /> Add Employee
-        </button>
         <div className="ml-auto flex items-center gap-2">
           {dirty && (
             <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
@@ -166,15 +157,6 @@ export function AttendancePage() {
           onAddEmployee={handleAddEmployee}
           onEditEmployee={handleEditEmployee}
           onDeleteEmployee={handleDeleteEmployee}
-        />
-      )}
-
-      {/* Mobile add modal */}
-      {showAddModal && (
-        <EmployeeModal
-          mode="add"
-          onSave={handleAddEmployee}
-          onClose={() => setShowAddModal(false)}
         />
       )}
 
